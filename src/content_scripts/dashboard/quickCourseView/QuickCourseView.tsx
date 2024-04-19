@@ -84,16 +84,12 @@ const QuickCourseView = (props: { courses: Course[] }) => {
 
   const date = new Date();
   const shiftedDate = new Date(
-    date.getFullYear(),
-    date.getMonth() - 3,
+    getFiscalYear(date),
+    date.getMonth() - 3, // 1月=0-3=-3, 3月=2-3=-1, 4月=3-3=0, 9月=8-3=5, 10月=9-3=6, 12月=11-3=8
     date.getDate(),
   );
   // 現在の年と前期/後期のフィルターを最初に選択する
-  const [filter, setFilter] = hooks.useState<Filter>(
-    `${shiftedDate.getFullYear()}-${
-      shiftedDate.getMonth() < 6 ? '1/2' : '2/2'
-    }`,
-  );
+  const [filter, setFilter] = hooks.useState<Filter>(getFilterExp(shiftedDate));
 
   const filters = [
     { display: 'すべて', value: 'all' },
@@ -110,10 +106,8 @@ const QuickCourseView = (props: { courses: Course[] }) => {
     ]);
   });
   semestersMap.set(
-    `${shiftedDate.getFullYear()}-${
-      shiftedDate.getMonth() < 6 ? '1/2' : '2/2'
-    }`,
-    [shiftedDate.getFullYear(), shiftedDate.getMonth() < 6 ? '1/2' : '2/2'],
+    getFilterExp(shiftedDate),
+    [shiftedDate.getFullYear(), getSemesterExp(shiftedDate)],
   );
   const semesters = Array.from(semestersMap.values()).sort((a, b) => {
     if (a[0] !== b[0]) {
@@ -126,10 +120,11 @@ const QuickCourseView = (props: { courses: Course[] }) => {
     new Set(regularCourses.map((course) => course.fullYear)),
   ).sort();
 
+  // fileterにフィルター項目を登録
   semesters.forEach(([year, semester]) => {
     filters.push({
-      display: `${year}年 ${semesterMap[semester]}`,
-      value: `${year}-${semester}`,
+      display: getFilterDisplayExp(date, year, semesterMap[semester]),
+      value: getFilterExp(date, year, semester),
     });
   });
   years.forEach((year) => {
@@ -139,7 +134,7 @@ const QuickCourseView = (props: { courses: Course[] }) => {
     });
   });
 
-  const filterDisplayName = getFilterDisplayName();
+  const filterDisplay = getFilterDisplayExp();
 
   return (
     <div id='moodle_ext_quick_course_view' className='card-body p-3'>
@@ -152,7 +147,7 @@ const QuickCourseView = (props: { courses: Course[] }) => {
         >
           <hr className='mt-0' />
           <QuickCourseViewControl
-            filterDisplay={filterDisplayName}
+            filterDisplay={filterDisplay}
             filterValue={filter}
             setFilter={setFilter}
             filterList={filters}
@@ -177,19 +172,67 @@ const renderQuickCourseView = function (
   );
 };
 
-function getFilterDisplayName() {
-  // 2024年前期 みたいなやつ
+/**
+ * Filterの表現を取得する
+ * @param {Date} date
+ * @returns {string} 2024-1/2 みたいなやつ
+ */
+function getFilterExp(date?: Date, year?: number, semester?: string): string {
   // 雑な実装
-  const nowDate = new Date();
-  return getFiscalYear(nowDate) + '年' + getTermLetter(nowDate);
+  if (date == null) {
+    date = new Date();
+  }
+  if (year == null) {
+    year = date.getFullYear();
+  }
+  if (semester == null) {
+    semester = getSemesterExp(date);
+  }
+  return `${year}-${semester}`;
+}
+
+/**
+ * 学期の表現を取得する
+ * @param {Date} date
+ * @returns {string}
+ */
+function getSemesterExp(date: Date) {
+  return date.getMonth() < 6 ? '1/2' : '2/2';
+}
+
+/**
+ * フィルターの表示項目を取得する
+ * @param date
+ * @param year
+ * @param semester
+ * @returns "2024年 前期" みたいなやつ
+ */
+function getFilterDisplayExp(
+  date?: Date,
+  year?: number,
+  semester?: string,
+): string {
+  // yearとsemesterが両方あるときはdateいらないみたいにしたい…。
+  // 雑な実装
+  if (date == null) {
+    date = new Date();
+  }
+  if (year == null) {
+    year = getFiscalYear(date);
+  }
+  if (semester == null) {
+    semester = getTermLetter(date) + '期';
+  }
+  return `${year}年 ${semester}`;
+  // return getFiscalYear(nowDate) + '年' + getTermLetter(nowDate);
 }
 
 /**
  * 与えられた日付が前期か後期か判定したものを返します。
- * @param {Date} day 日付
- * @return {String} 前期なら前, 後期なら後を返す
+ * @param {Date} date 日付
+ * @return {string} 前期なら前, 後期なら後を返す
  */
-function getTermLetter(date: Date) {
+function getTermLetter(date: Date): string {
   const month = date.getMonth() + 1; // Monthは0-index
   return 4 <= month && month <= 9 ? '前' : '後';
 }
@@ -198,9 +241,9 @@ function getTermLetter(date: Date) {
  * 年度にあたる数字を返す。
  * 例: 2022年4月～12月 & 2023年1月～3月 -> 2022
  * @param {Date} date
- * @return {Number} 年度
+ * @return {number} 年度 対象外の場合-1
  */
-function getFiscalYear(date: Date) {
+function getFiscalYear(date: Date): number {
   // 年度で指定できるようにするところ。
   const month = date.getMonth() + 1; // Monthは0-index
 
@@ -210,6 +253,7 @@ function getFiscalYear(date: Date) {
     return Number(date.getFullYear());
   } else {
     console.error('cannot get fisical year');
+    return -1;
   }
 }
 
