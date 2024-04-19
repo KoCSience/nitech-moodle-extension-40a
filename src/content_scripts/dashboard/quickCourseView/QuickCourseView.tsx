@@ -139,6 +139,8 @@ const QuickCourseView = (props: { courses: Course[] }) => {
     });
   });
 
+  const filterDisplayName = getFilterDisplayName();
+
   return (
     <div id='moodle_ext_quick_course_view' className='card-body p-3'>
       <h5 class='card-title d-inline'>コースリンク</h5>
@@ -150,7 +152,7 @@ const QuickCourseView = (props: { courses: Course[] }) => {
         >
           <hr className='mt-0' />
           <QuickCourseViewControl
-            filterDisplay='2023年前期'
+            filterDisplay={filterDisplayName}
             filterValue={filter}
             setFilter={setFilter}
             filterList={filters}
@@ -174,5 +176,41 @@ const renderQuickCourseView = function (
     targetElement,
   );
 };
+
+function getFilterDisplayName() {
+  // 2024年前期 みたいなやつ
+  // 雑な実装
+  const nowDate = new Date();
+  return getFiscalYear(nowDate) + '年' + getTermLetter(nowDate);
+}
+
+/**
+ * 与えられた日付が前期か後期か判定したものを返します。
+ * @param {Date} day 日付
+ * @return {String} 前期なら前, 後期なら後を返す
+ */
+function getTermLetter(date: Date) {
+  const month = date.getMonth() + 1; // Monthは0-index
+  return 4 <= month && month <= 9 ? '前' : '後';
+}
+
+/**
+ * 年度にあたる数字を返す。
+ * 例: 2022年4月～12月 & 2023年1月～3月 -> 2022
+ * @param {Date} date
+ * @return {Number} 年度
+ */
+function getFiscalYear(date: Date) {
+  // 年度で指定できるようにするところ。
+  const month = date.getMonth() + 1; // Monthは0-index
+
+  if (1 <= month && month <= 3) {
+    return Number(date.getFullYear() - 1);
+  } else if (4 <= month && month <= 12) {
+    return Number(date.getFullYear());
+  } else {
+    console.error('cannot get fisical year');
+  }
+}
 
 export { renderQuickCourseView };
